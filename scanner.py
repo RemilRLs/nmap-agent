@@ -15,6 +15,7 @@ class AgentState(TypedDict):
     """
     user_input: str
     response: str
+    ip: str
     messages: List[BaseMessage]
 
 class LLMAgent:
@@ -43,10 +44,40 @@ class LLMAgent:
         graph = StateGraph(AgentState)  
 
         graph.add_node("get_ip", self.get_ip)
+        graph.add_node("get_scan_type", self.get_scan_type)
+        graph.add_node("get_full_scan", self.get_full_scan)
+        graph.add_node("get_default_scan", self.get_default_scan)
+        graph.add_node("get_os_scan", self.get_os_scan)
+
         graph.add_edge(START, "get_ip")  
+        graph.add_edge("get_ip", "get_scan_type")
+        
+        graph.add_conditional_edges(
+            "get_scan_type",
+            self.route_scan,
+            {
+                "full_scan": "get_full_scan",
+                "os_detection_scan": "get_os_scan",
+                "default_scan": "get_default_scan"
+            }
+        )
 
-        return graph.compile() 
+        return graph.compile()
 
+
+    def route_scan(self, state: AgentState) -> str:
+        """
+        Determines the next step based on the scan type detected.
+        """
+        scan_type = state["response"]  
+        print(f"[+] - Routing to scan type: {scan_type}")
+
+        if scan_type == "full_scan":
+            return "full_scan"
+        elif scan_type == "os_detection_scan":
+            return "os_detection_scan"
+        else:
+            return "default_scan"
 
 
     def get_ip(self, state: AgentState) -> AgentState:
@@ -55,7 +86,70 @@ class LLMAgent:
 
         print(f"[+] - Extracted IP: {extracted_ip}")
 
+        state["ip"] = extracted_ip
 
+        return state
+
+    def get_scan_type(self, state: AgentState) -> AgentState:
+        user_input = state["user_input"]
+        scan_type = NmapTools.get_scan_type.invoke(user_input)
+
+        tool_call_message = AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "get_scan_type",
+                "args": {"user_input": user_input},
+                "id": "tool_call_2",
+                "type": "tool_call",
+            }]
+        )
+
+        print(f"[+] - Scan Type Detected: {scan_type}")
+
+        state["messages"].append(tool_call_message)
+        state["response"] = scan_type 
+        return state
+
+
+    def get_full_scan(self, state: AgentState) -> AgentState:
+        """
+        Get the full scan
+        """
+        ip = state.get("ip", "Unknown")
+        print(f"[+] - Running full scan detection scan on {ip}...")
+
+        return state
+
+    def get_default_scan(self, state: AgentState) -> AgentState:
+        """
+        Get the default scan
+        """
+        ip = state.get("ip", "Unknown")
+        print(f"[+] - Running default scan on {ip}...")
+
+        result_scan = NmapTools.default_scan.invoke(ip)
+        tool_call_message = AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "get_default_scan",
+                "args": {"ip": ip},
+                "id": "tool_call_3",
+                "type": "tool_call",
+            }]
+        )
+
+        print(f"[+] - Scan result: {result_scan}")
+
+        return state
+
+    def get_os_scan(self, state: AgentState) -> AgentState:
+        """
+        Get the os scan
+        """
+        ip = state.get("ip", "Unknown")
+        print(f"[+] - Running OS detection scan on {ip}...")
+
+        return state
 
     def get_response(self, state: AgentState) -> AgentState:
         """
