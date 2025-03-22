@@ -1,0 +1,145 @@
+{
+    "nmaprun": {
+        "@scanner": "nmap",
+        "@args": "nmap -sS -sV -p- -oX - 192.168.1.26",
+        "@start": "1742648983",
+        "@startstr": "Sat Mar 22 14:09:43 2025",
+        "@version": "7.94SVN",
+        "@xmloutputversion": "1.05",
+        "scaninfo": {
+            "@type": "syn",
+            "@protocol": "tcp",
+            "@numservices": "65535",
+            "@services": "1-65535"
+        },
+        "verbose": {
+            "@level": "0"
+        },
+        "debugging": {
+            "@level": "0"
+        },
+        "host": {
+            "@starttime": "1742648983",
+            "@endtime": "1742649057",
+            "status": {
+                "@state": "up",
+                "@reason": "localhost-response",
+                "@reason_ttl": "0"
+            },
+            "address": {
+                "@addr": "192.168.1.26",
+                "@addrtype": "ipv4"
+            },
+            "hostnames": {
+                "hostname": {
+                    "@name": "remil.home",
+                    "@type": "PTR"
+                }
+            },
+            "ports": {
+                "extraports": {
+                    "@state": "closed",
+                    "@count": "65531",
+                    "extrareasons": {
+                        "@reason": "reset",
+                        "@count": "65531",
+                        "@proto": "tcp",
+                        "@ports": "1-21,23-79,81-3388,3391-65535"
+                    }
+                },
+                "port": [
+                    {
+                        "@protocol": "tcp",
+                        "@portid": "22",
+                        "state": {
+                            "@state": "open",
+                            "@reason": "syn-ack",
+                            "@reason_ttl": "64"
+                        },
+                        "service": {
+                            "@name": "ssh",
+                            "@product": "OpenSSH",
+                            "@version": "9.6p1 Ubuntu 3ubuntu13.8",
+                            "@extrainfo": "Ubuntu Linux; protocol 2.0",
+                            "@ostype": "Linux",
+                            "@method": "probed",
+                            "@conf": "10",
+                            "cpe": [
+                                "cpe:/a:openbsd:openssh:9.6p1",
+                                "cpe:/o:linux:linux_kernel"
+                            ]
+                        }
+                    },
+                    {
+                        "@protocol": "tcp",
+                        "@portid": "80",
+                        "state": {
+                            "@state": "open",
+                            "@reason": "syn-ack",
+                            "@reason_ttl": "64"
+                        },
+                        "service": {
+                            "@name": "http",
+                            "@product": "Apache httpd",
+                            "@version": "2.4.58",
+                            "@extrainfo": "(Ubuntu)",
+                            "@method": "probed",
+                            "@conf": "10",
+                            "cpe": "cpe:/a:apache:http_server:2.4.58"
+                        }
+                    },
+                    {
+                        "@protocol": "tcp",
+                        "@portid": "3389",
+                        "state": {
+                            "@state": "open",
+                            "@reason": "syn-ack",
+                            "@reason_ttl": "64"
+                        },
+                        "service": {
+                            "@name": "ms-wbt-server",
+                            "@product": "xrdp",
+                            "@method": "probed",
+                            "@conf": "10",
+                            "cpe": "cpe:/a:jay_sorg:xrdp"
+                        }
+                    },
+                    {
+                        "@protocol": "tcp",
+                        "@portid": "3390",
+                        "state": {
+                            "@state": "open",
+                            "@reason": "syn-ack",
+                            "@reason_ttl": "64"
+                        },
+                        "service": {
+                            "@name": "dsc",
+                            "@servicefp": "SF-Port3390-TCP:V=7.94SVN%I=7%D=3/22%Time=67DEB6BE%P=x86_64-pc-linux-gnu%r(TerminalServerCookie,13,\"\\x03\\0\\0\\x13\\x0e\\xd0\\0\\0\\0\\0\\0\\x02\\x03\\x08\\0\\x02\\0\\0\\0\")%r(TerminalServer,13,\"\\x03\\0\\0\\x13\\x0e\\xd0\\0\\0\\0\\0\\0\\x03\\0\\x08\\0\\x05\\0\\0\\0\")%r(oracle-tns,25,\"\\x03\\0\\0\\x1c\\x02\\xf0\\x80h\\xfc\\x17\\x03\\xebp\\x80\\r\\r\\0\\x16\\0\\0\\0\\0\\0\\0\\0\\x01\\0\\0\\x03\\0\\0\\t\\x02\\xf0\\x80!\\x80\");",
+                            "@method": "table",
+                            "@conf": "3"
+                        }
+                    }
+                ]
+            },
+            "times": {
+                "@srtt": "5",
+                "@rttvar": "0",
+                "@to": "100000"
+            }
+        },
+        "runstats": {
+            "finished": {
+                "@time": "1742649057",
+                "@timestr": "Sat Mar 22 14:10:57 2025",
+                "@summary": "Nmap done at Sat Mar 22 14:10:57 2025; 1 IP address (1 host up) scanned in 74.33 seconds",
+                "@elapsed": "74.33",
+                "@exit": "success"
+            },
+            "hosts": {
+                "@up": "1",
+                "@down": "0",
+                "@total": "1"
+            }
+        }
+    }
+}

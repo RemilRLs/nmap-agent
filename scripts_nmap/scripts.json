@@ -1,0 +1,26 @@
+{
+  "http": {
+    "scripts": ["http-title", "http-methods", "http-headers", "http-server-header"],
+    "description": "Common HTTP analysis scripts"
+  },
+  "smtp": {
+    "scripts": ["smtp-commands", "smtp-enum-users"],
+    "description": "Analyze SMTP capabilities and users"
+  },
+  "ftp": {
+    "scripts": ["ftp-anon", "ftp-bounce"],
+    "description": "Detect anonymous access and misconfigurations"
+  },
+  "rpc": {
+    "scripts": ["rpcinfo"],
+    "description": "Enumerate RPC services"
+  },
+  "smb": {
+    "scripts": ["smb-os-discovery", "smb-enum-shares", "smb-enum-users"],
+    "description": "SMB information gathering"
+  },
+  "ssh": {
+    "scripts": ["ssh-auth-methods", "ssh-hostkey", "ssh2-enum-algos", "sshv1"],
+    "description": "SSH configuration and security analysis"
+  }
+}

@@ -1,8 +1,11 @@
 from typing import TypedDict, List
 
 import json
+import os
+import xmltodict
 
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from scannertools import NmapTools
@@ -16,6 +19,10 @@ class AgentState(TypedDict):
     user_input: str
     response: str
     ip: str
+    scan_result: str
+    analysis_result: str
+    available_scripts: dict
+    open_services: dict
     messages: List[BaseMessage]
 
 class LLMAgent:
@@ -27,7 +34,11 @@ class LLMAgent:
         """ 
         Init agent
         """
-        self.llm = ChatOllama(model=model_name, base_url=base_url)
+        self.llm = ChatOpenAI(
+            model="gpt-3.5-turbo",
+            temperature=0,
+            openai_api_key=os.getenv("API_KEY")  
+        )
         self.tool_node = NmapTools.get_tool_node()
         self.graph = self.build_graph()
 
@@ -48,6 +59,9 @@ class LLMAgent:
         graph.add_node("get_full_scan", self.get_full_scan)
         graph.add_node("get_default_scan", self.get_default_scan)
         graph.add_node("get_os_scan", self.get_os_scan)
+        graph.add_node("process_scan_result", self.process_scan_result)
+        graph.add_node("get_service_name", self.get_service_name)
+        graph.add_node("master_choose_script", self.master_choose_script)
 
         graph.add_edge(START, "get_ip")  
         graph.add_edge("get_ip", "get_scan_type")
@@ -62,8 +76,62 @@ class LLMAgent:
             }
         )
 
-        return graph.compile()
 
+        graph.add_edge("get_full_scan", "process_scan_result")
+        graph.add_edge("get_os_scan", "process_scan_result")
+        graph.add_edge("get_default_scan", "process_scan_result")
+        graph.add_edge("process_scan_result", "get_service_name")
+        graph.add_edge("get_service_name", "master_choose_script")
+
+        return graph.compile()  
+    
+    def get_service_name(self, state: AgentState) -> AgentState:
+        """
+        Get Service Name from JSON output
+        """
+
+        output_file = "nmap_scan_result.json"
+
+
+        with open(output_file, "r", encoding="utf-8") as json_file:
+            parsed_nmap = json.load(json_file)
+
+        print(parsed_nmap)
+
+        open_services = NmapTools.get_script.invoke({"parsed_result": parsed_nmap})
+
+
+        print(f"[+] - Services détectés : {open_services}")
+
+        state["available_scripts"] = open_services.get("available_scripts", {})
+        state["open_services"] = open_services.get("open_services", {})
+        
+        return state
+
+
+    def parse_nmap_output(self, nmap_result: str, output_file="nmap_scan_result.json") -> dict:
+        """
+        Parse the Nmap output from XML to a dictionary.
+        """
+        try:
+            xml_data = nmap_result.stdout.strip()
+            
+            if not xml_data.startswith("<?xml"):
+                raise ValueError("Nmap output does not appear to be valid XML.")
+            
+            parsed_output = xmltodict.parse(xml_data)
+
+            json_output = json.dumps(parsed_output, indent=4)
+
+            with open(output_file, "w", encoding="utf-8") as json_file:
+                json_file.write(json_output)
+                
+
+            return json.loads(json_output)
+
+        except Exception as e:
+            print(f"[!] - Error parsing Nmap output: {e}")
+            return {"error": str(e)}
 
     def route_scan(self, state: AgentState) -> str:
         """
@@ -89,6 +157,69 @@ class LLMAgent:
         state["ip"] = extracted_ip
 
         return state
+    
+    def process_scan_result(self, state: AgentState) -> AgentState:
+        """
+        Process the scan result by parsing it and analyzing it with an expert agent.
+        """
+
+        scan_result = state.get("scan_result", "")
+
+        if not scan_result:
+            print("[!] - No scan result available for processing.")
+            state["analysis_result"] = "Error: No scan result found."
+            return state
+
+        parsed_result = self.parse_nmap_output(scan_result)
+
+        parsed_result_str = json.dumps(parsed_result, indent=4)
+
+        analysis_result = NmapTools.analyze_nmap_result.invoke(parsed_result_str)
+
+
+        tool_call_message = AIMessage(
+            content=analysis_result,  
+            tool_calls=[{
+                "name": "process_scan_result",
+                "args": {"scan_result": parsed_result_str}, 
+                "id": "tool_call_4",
+                "type": "tool_call",
+            }]
+        )
+
+    
+        state["analysis_result"] = analysis_result
+        state["messages"].append(tool_call_message)
+
+        print(f"[+] - Analysis Summary:\n{analysis_result}")
+
+        return state
+    
+    def master_choose_script(self, state: AgentState) -> AgentState:
+        available_scripts = state.get("available_scripts", {})
+
+
+        if not available_scripts:
+            print("[!] - No available scripts found. Summary: " + state.get("analysis_result", ""))
+            return state
+            
+        choosen_scripts = NmapTools.master_service_choose.invoke({
+            "scan_result": json.dumps(state.get("open_services", {}), indent=2),
+            "script": state.get("available_scripts", {})
+        })
+
+        tool_call_message = AIMessage(
+            content=choosen_scripts,
+            tool_calls=[{
+                "name": "master_service_choose",
+                "args": {
+                    "scan_result": json.dumps(state.get("open_services", {}), indent=2),
+                    "script": state.get("available_scripts", {})
+                },
+                "id": "tool_call_5",
+                "type": "tool_call",
+            }]
+        )
 
     def get_scan_type(self, state: AgentState) -> AgentState:
         user_input = state["user_input"]
@@ -128,6 +259,7 @@ class LLMAgent:
         print(f"[+] - Running default scan on {ip}...")
 
         result_scan = NmapTools.default_scan.invoke(ip)
+
         tool_call_message = AIMessage(
             content="",
             tool_calls=[{
@@ -139,6 +271,7 @@ class LLMAgent:
         )
 
         print(f"[+] - Scan result: {result_scan}")
+        state["scan_result"] = result_scan
 
         return state
 
