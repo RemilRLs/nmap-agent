@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     analysis_result: str
     available_scripts: dict
     open_services: dict
+    choosen_scripts: dict
     messages: List[BaseMessage]
 
 class LLMAgent:
@@ -62,6 +63,7 @@ class LLMAgent:
         graph.add_node("process_scan_result", self.process_scan_result)
         graph.add_node("get_service_name", self.get_service_name)
         graph.add_node("master_choose_script", self.master_choose_script)
+        graph.add_node("scan_with_recommanded_scripts", self.scan_with_recommanded_scripts)
 
         graph.add_edge(START, "get_ip")  
         graph.add_edge("get_ip", "get_scan_type")
@@ -82,6 +84,7 @@ class LLMAgent:
         graph.add_edge("get_default_scan", "process_scan_result")
         graph.add_edge("process_scan_result", "get_service_name")
         graph.add_edge("get_service_name", "master_choose_script")
+        graph.add_edge("master_choose_script", "scan_with_recommanded_scripts")
 
         return graph.compile()  
     
@@ -173,15 +176,18 @@ class LLMAgent:
         parsed_result = self.parse_nmap_output(scan_result)
 
         parsed_result_str = json.dumps(parsed_result, indent=4)
-
-        analysis_result = NmapTools.analyze_nmap_result.invoke(parsed_result_str)
+        scan_type = state.get("response", "default_scan")
+        analysis_result = NmapTools.analyze_nmap_result.invoke({
+            "scan_result_json": parsed_result_str,
+            "scan_type": scan_type
+        })
 
 
         tool_call_message = AIMessage(
             content=analysis_result,  
             tool_calls=[{
                 "name": "process_scan_result",
-                "args": {"scan_result": parsed_result_str}, 
+                "args": {"scan_result": parsed_result_str, "scan_type": scan_type}, 
                 "id": "tool_call_4",
                 "type": "tool_call",
             }]
@@ -220,6 +226,48 @@ class LLMAgent:
                 "type": "tool_call",
             }]
         )
+
+        state["choosen_scripts"] = choosen_scripts
+
+        return state
+
+    def scan_with_recommanded_scripts(self, state: AgentState) -> AgentState:
+        """
+        Send the recommended scripts to the user.
+        """
+        choosen_scripts_str = state.get("choosen_scripts", {})
+        if not choosen_scripts_str:
+            print("[!] - No recommended scripts found")
+            return state
+
+        choosen_scripts = json.loads(choosen_scripts_str)
+
+        print(f"[+] - Recommended scripts: {choosen_scripts}")
+
+        result_scan_scripts = NmapTools.run_recommanded_script.invoke({
+            "ip": state.get("ip", "Unknown"),
+            "scripts": choosen_scripts,
+            "open_services": state.get("open_services", {})
+        })
+
+        tool_call_message = AIMessage(
+            content=result_scan_scripts,
+            tool_calls=[{
+                "name": "scan_with_recommanded_scripts",
+                "args": {
+                    "ip": state.get("ip", "Unknown"),
+                    "scripts": choosen_scripts,
+                    "open_services": state.get("open_services", {})
+                },
+                "id": "tool_call_6",
+                "type": "tool_call",
+            }]
+        )
+
+        print(f"[+] - Scan result with recommended scripts: {result_scan_scripts}")
+
+        return state
+
 
     def get_scan_type(self, state: AgentState) -> AgentState:
         user_input = state["user_input"]
@@ -277,10 +325,26 @@ class LLMAgent:
 
     def get_os_scan(self, state: AgentState) -> AgentState:
         """
-        Get the os scan
+        Run an OS detection scan on the target IP.
         """
         ip = state.get("ip", "Unknown")
         print(f"[+] - Running OS detection scan on {ip}...")
+
+        result_scan = NmapTools.os_detection_scan.invoke(ip)
+
+        tool_call_message = AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "get_os_scan",
+                "args": {"ip": ip},
+                "id": "tool_call_4",
+                "type": "tool_call",
+            }]
+        )
+
+        print(f"[+] - Scan result (OS detection): {result_scan}")
+        state["scan_result"] = result_scan
+        state["messages"].append(tool_call_message)
 
         return state
 
@@ -314,4 +378,4 @@ class LLMAgent:
 
 agent = LLMAgent()
 
-agent.ask("Can you scan the IP 192.168.1.26")
+agent.ask("Can you scan the OS on IP 192.168.1.26")

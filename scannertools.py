@@ -73,44 +73,68 @@ class NmapTools:
         return response
 
     @tool
-    def analyze_nmap_result(scan_result_json: str) -> str:
+    def analyze_nmap_result(scan_result_json: str, scan_type: str = "default_scan") -> str:
         """
         Analyze a structured Nmap scan result (JSON) and provide insights.
         """
 
         try:
-            prompt = f"""
-            You are a cybersecurity expert specialized in network security. Your task is to analyze the following Nmap scan result and provide a structured security assessment.
+            if scan_type == "os_detection_scan":
+                prompt = f"""
+                You are a cybersecurity analyst specialized in fingerprinting and OS reconnaissance.
+                You are analyzing the result of an **OS Detection Nmap Scan (-O)**.
 
-            ### **Scan Report**
-            
+                ### **Scan Report**
+                {scan_result_json}
 
-            {scan_result_json}
+                ### **Instructions**
+                1. Extract the most probable OS name and version.
+                2. Include additional details: OS vendor, family, generation, uptime, distance (TTL).
+                3. Highlight if the OS is outdated or unsupported (if known).
+                4. Provide potential risks associated with this OS version (e.g., kernel vulnerabilities).
+                5. Suggest remediation or further checks (e.g., CVE lookup, patching).
 
+                ### **Response Format**
+                - **Detected OS**: [e.g., Linux 2.6.32, accuracy: 100%]
+                - **Vendor / Family / Gen**: [e.g., Linux / Linux / 2.6.X]
+                - **Uptime**: [e.g., 35 days]
+                - **Distance (TTL estimate)**: [e.g., 0 hop]
+                - **Security Assessment**:
+                - [Risk or weakness]
+                - **Recommended Actions**:
+                - [Step 1]
+                - [Step 2]
 
+                🚨 Do not add extra explanations. Only return the structured result above.
+                """
 
-            ### **Instructions**
-            1. **Summary:** Provide a concise summary of the scanned host(s), including open ports and detected services.
-            2. **Security Risks:** Identify potential security risks based on the open ports and services detected.
-            3. **Recommended Actions:** Suggest mitigation actions for any detected risks.
-            4. **Additional Insights:** If applicable, mention any unusual behaviors, outdated software versions, or vulnerable services.
+            else:  # default_scan, full_scan, etc.
+                prompt = f"""
+                You are a cybersecurity expert specialized in network security. Your task is to analyze the following Nmap scan result and provide a structured security assessment.
 
-            ### **Your Response Format**
-            - **Host Information**: [IP Address, Hostname if available]
-            - **Open Ports & Services**:
-              - Port 22 (SSH): OpenSSH 9.6p1 - Secure? [Yes/No]
-              - Port 80 (HTTP): Apache 2.4.58 - Secure? [Yes/No]
-              - ...
-            - **Security Risks**:
-              - Risk 1: [Explanation]
-              - Risk 2: [Explanation]
-            - **Recommended Actions**:
-              - Action 1: [Mitigation step]
-              - Action 2: [Mitigation step]
-            - **Additional Observations**: [Any anomalies detected]
+                ### **Scan Report**
+                {scan_result_json}
 
-            🚨 **IMPORTANT:** Only return the structured analysis, **no extra explanations** outside the requested format.
-            """
+                ### **Instructions**
+                1. **Summary:** Provide a concise summary of the scanned host(s), including open ports and detected services.
+                2. **Security Risks:** Identify potential security risks based on the open ports and services detected.
+                3. **Recommended Actions:** Suggest mitigation actions for any detected risks.
+                4. **Additional Insights:** If applicable, mention any unusual behaviors, outdated software versions, or vulnerable services.
+
+                ### **Your Response Format**
+                - **Host Information**: [IP Address, Hostname if available]
+                - **Open Ports & Services**:
+                - Port 22 (SSH): OpenSSH 9.6p1 - Secure? [Yes/No]
+                - Port 80 (HTTP): Apache 2.4.58 - Secure? [Yes/No]
+                - **Security Risks**:
+                - Risk 1: [...]
+                - **Recommended Actions**:
+                - Action 1: [...]
+                - **Additional Observations**: [...]
+
+                🚨 Only return the structured analysis above.
+                """
+
 
             response = NmapTools.llm.invoke(prompt).content.strip()
             return response
@@ -211,12 +235,88 @@ class NmapTools:
         except Exception as e:
             raise ToolException(f"Error analyzing Nmap scan result: {str(e)}")
 
+    @tool
+    def run_recommanded_script(scripts: dict, ip: str, open_services: dict) -> str:
+        """
+        Run the recommended Nmap scripts for each detected service and return parsed results.
+        """
+        import subprocess
+        import xmltodict
+        import json
+
+        print(f"Scripts: {scripts}")
+        print(f"Open Services: {open_services}")
+        print(f"IP: {ip}")
+
+        results_by_service = {}
+
+        for service, data in scripts.items():
+            selected_scripts = data.get("scripts", [])
+            if not selected_scripts:
+                continue
+
+            port = open_services.get(service)
+            if not port:
+                continue
+
+            script_list = ",".join(selected_scripts)
+
+            command = [
+                "sudo",
+                "nmap",
+                "-sS",
+                "-sV",
+                "-p", str(port),
+                f"--script={script_list}",
+                "-oX", "-", 
+                ip
+            ]
+
+            try:
+                print(f"[>] Running: {' '.join(command)}")
+                result = subprocess.run(command, capture_output=True, text=True, check=True)
+
+                xml_output = result.stdout
+                parsed = xmltodict.parse(xml_output)
+
+                results_by_service[service] = {
+                    "port": port,
+                    "scripts": selected_scripts,
+                    "parsed_output": parsed
+                }
+
+            except subprocess.CalledProcessError as e:
+                results_by_service[service] = {
+                    "port": port,
+                    "scripts": selected_scripts,
+                    "error": e.stderr.strip()
+                }
+            except Exception as e:
+                results_by_service[service] = {
+                    "port": port,
+                    "scripts": selected_scripts,
+                    "error": str(e)
+                }
+
+
+        return json.dumps(results_by_service, indent=2)
+
 
     @tool
-    def os_detection_scan(ip: str):
-        """Detect operating system of the host.
+    def os_detection_scan(ip: str) -> str:
         """
-        # implémentation ici
+        Run Nmap OS detection scan on the target.
+        """
+        import subprocess
+
+        try:
+            command = ["sudo", "nmap", "-O", "-oX", "-", ip] 
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            return result 
+        except subprocess.CalledProcessError as e:
+            return f"Error running OS detection: {e.stderr.strip()}"
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
 
     @tool
     def full_scan(ip: str):
@@ -268,6 +368,7 @@ class NmapTools:
             cls.default_scan,
             cls.analyze_nmap_result,
             cls.get_script,
-            cls.master_service_choose
+            cls.master_service_choose,
+            cls.run_recommanded_script,
         ]
         return ToolNode(tools)
