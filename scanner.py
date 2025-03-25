@@ -24,6 +24,7 @@ class AgentState(TypedDict):
     available_scripts: dict
     open_services: dict
     choosen_scripts: dict
+    result_scan_scripts: dict
     messages: List[BaseMessage]
 
 class LLMAgent:
@@ -64,6 +65,7 @@ class LLMAgent:
         graph.add_node("get_service_name", self.get_service_name)
         graph.add_node("master_choose_script", self.master_choose_script)
         graph.add_node("scan_with_recommanded_scripts", self.scan_with_recommanded_scripts)
+        graph.add_node("analyze_scripts_results", self.analyze_scripts_results)
 
         graph.add_edge(START, "get_ip")  
         graph.add_edge("get_ip", "get_scan_type")
@@ -85,6 +87,7 @@ class LLMAgent:
         graph.add_edge("process_scan_result", "get_service_name")
         graph.add_edge("get_service_name", "master_choose_script")
         graph.add_edge("master_choose_script", "scan_with_recommanded_scripts")
+        graph.add_edge("scan_with_recommanded_scripts", "analyze_scripts_results")
 
         return graph.compile()  
     
@@ -265,9 +268,52 @@ class LLMAgent:
         )
 
         print(f"[+] - Scan result with recommended scripts: {result_scan_scripts}")
+        state["result_scan_scripts"] = result_scan_scripts
+        state["messages"].append(tool_call_message)
 
         return state
 
+    def analyze_scripts_results(self, state: AgentState) -> AgentState:
+        """
+        Analyze the results of the scripts.
+        """
+        result_scan_scripts = state.get("result_scan_scripts", "")
+        if not result_scan_scripts:
+            print("[!] - No scan result available for processing.")
+            state["analysis_result"] = "Error: No scan result found."
+            return state
+
+        print(f"[+] - Analyzing scan result with scripts: {result_scan_scripts}")
+
+
+        try:
+            if isinstance(result_scan_scripts, str):
+                result_scan_scripts = json.loads(result_scan_scripts)
+
+            result_summary_script = NmapTools.analyze_scripts_results.invoke({
+                "scan_result_script": result_scan_scripts
+            })
+
+            tool_call_message = AIMessage(
+                content=result_summary_script,
+                tool_calls=[{
+                    "name": "analyze_scripts_results",
+                    "args": {"scan_result_script": result_scan_scripts},
+                    "id": "tool_call_7",
+                    "type": "tool_call",
+                }]
+            )
+
+            print(f"[+] - Analysis Summary:\n{result_summary_script}")
+            state["analysis_result"] = result_summary_script
+            state["messages"].append(tool_call_message)
+
+            return state
+
+        except Exception as e:
+            print(f"[!] - Error analyzing script scan result: {e}")
+            state["analysis_result"] = f"Exception: {e}"
+            return state
 
     def get_scan_type(self, state: AgentState) -> AgentState:
         user_input = state["user_input"]
@@ -378,4 +424,4 @@ class LLMAgent:
 
 agent = LLMAgent()
 
-agent.ask("Can you scan the OS on IP 192.168.1.26")
+agent.ask("Can you scan IP 192.168.1.26")

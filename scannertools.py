@@ -353,7 +353,46 @@ class NmapTools:
         except Exception as e:
             raise ToolException(f"Error executing nmap: {str(e)}")
 
+    @tool
+    def analyze_scripts_results(scan_result_script: dict) -> str:
+        """
+        Analyze the results of the executed scripts.
+        """
+        try:
 
+            prompt = f"""
+            You are a cybersecurity expert. Below are the results of specialized Nmap scripts executed against different services on a target host. The data is structured by service name and contains parsed Nmap XML output.
+
+            ### Nmap Script Scan Results
+            {json.dumps(scan_result_script, indent=2)}
+
+            ### Your task:
+            For each detected service:
+            1. Summarize what the executed scripts reveal about the service's configuration or behavior.
+            2. Identify any potential security risks based on the script output (e.g., weak authentication, outdated software, misconfigurations).
+            3. Suggest one or two actionable recommendations to mitigate or further investigate the identified risks.
+            4. Assign a severity level (Low, Medium, High) based on the criticality of the risk.
+
+            ### Response Format (strictly follow this format):
+            - **Service**: [Name]
+            - **Severity**: [Low / Medium / High]
+            - **Summary**: [What was discovered about the service]
+            - **Potential Risks**: [List any risks or concerns]
+            - **Recommended Actions**: [Suggested mitigations or next steps]
+
+            ⚠️ Do not add any explanation or output outside of this response format. Be concise, accurate, and professional in tone.
+            """
+
+
+
+            print(prompt)
+            response = NmapTools.llm.invoke(prompt).content.strip()
+            print(response)
+
+
+            return response
+        except Exception as e:
+            raise ToolException(f"Error analyzing Nmap scan result: {str(e)}")
     @classmethod
     def get_tool_node(cls):
         """
@@ -370,5 +409,6 @@ class NmapTools:
             cls.get_script,
             cls.master_service_choose,
             cls.run_recommanded_script,
+            cls.analyze_scripts_results,
         ]
         return ToolNode(tools)
