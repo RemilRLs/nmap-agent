@@ -2,8 +2,8 @@
     "nmaprun": {
         "@scanner": "nmap",
         "@args": "nmap -sS -sV -p- -oX - 192.168.1.26",
-        "@start": "1742853141",
-        "@startstr": "Mon Mar 24 22:52:21 2025",
+        "@start": "1742937710",
+        "@startstr": "Tue Mar 25 22:21:50 2025",
         "@version": "7.94SVN",
         "@xmloutputversion": "1.05",
         "scaninfo": {
@@ -19,8 +19,8 @@
             "@level": "0"
         },
         "host": {
-            "@starttime": "1742853141",
-            "@endtime": "1742853216",
+            "@starttime": "1742937710",
+            "@endtime": "1742937784",
             "status": {
                 "@state": "up",
                 "@reason": "localhost-response",
@@ -114,7 +114,7 @@
                         },
                         "service": {
                             "@name": "dsc",
-                            "@servicefp": "SF-Port3390-TCP:V=7.94SVN%I=7%D=3/24%Time=67E1D43D%P=x86_64-pc-linux-gnu%r(TerminalServerCookie,13,\"\\x03\\0\\0\\x13\\x0e\\xd0\\0\\0\\0\\0\\0\\x02\\x03\\x08\\0\\x02\\0\\0\\0\")%r(TerminalServer,13,\"\\x03\\0\\0\\x13\\x0e\\xd0\\0\\0\\0\\0\\0\\x03\\0\\x08\\0\\x05\\0\\0\\0\")%r(oracle-tns,25,\"\\x03\\0\\0\\x1c\\x02\\xf0\\x80h\\xfc\\x17\\x03\\xebp\\x80\\r\\r\\0\\x16\\0\\0\\0\\0\\0\\0\\0\\x01\\0\\0\\x03\\0\\0\\t\\x02\\xf0\\x80!\\x80\");",
+                            "@servicefp": "SF-Port3390-TCP:V=7.94SVN%I=7%D=3/25%Time=67E31E95%P=x86_64-pc-linux-gnu%r(TerminalServerCookie,13,\"\\x03\\0\\0\\x13\\x0e\\xd0\\0\\0\\0\\0\\0\\x02\\x03\\x08\\0\\x02\\0\\0\\0\")%r(TerminalServer,13,\"\\x03\\0\\0\\x13\\x0e\\xd0\\0\\0\\0\\0\\0\\x03\\0\\x08\\0\\x05\\0\\0\\0\")%r(oracle-tns,25,\"\\x03\\0\\0\\x1c\\x02\\xf0\\x80h\\xfc\\x17\\x03\\xebp\\x80\\r\\r\\0\\x16\\0\\0\\0\\0\\0\\0\\0\\x01\\0\\0\\x03\\0\\0\\t\\x02\\xf0\\x80!\\x80\");",
                             "@method": "table",
                             "@conf": "3"
                         }
@@ -129,10 +129,10 @@
         },
         "runstats": {
             "finished": {
-                "@time": "1742853216",
-                "@timestr": "Mon Mar 24 22:53:36 2025",
-                "@summary": "Nmap done at Mon Mar 24 22:53:36 2025; 1 IP address (1 host up) scanned in 74.38 seconds",
-                "@elapsed": "74.38",
+                "@time": "1742937784",
+                "@timestr": "Tue Mar 25 22:23:04 2025",
+                "@summary": "Nmap done at Tue Mar 25 22:23:04 2025; 1 IP address (1 host up) scanned in 74.44 seconds",
+                "@elapsed": "74.44",
                 "@exit": "success"
             },
             "hosts": {

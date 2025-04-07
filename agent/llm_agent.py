@@ -1,37 +1,18 @@
-from typing import TypedDict, List
+from agent.graph_builder import GraphBuilder
+from utils.mermaid_graph import MermaidGraphGenerator
+from tools.nmap_tools import NmapTools
+from agent.state import AgentState
+from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, MessagesState, START, END
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+
 
 import json
 import os
 import xmltodict
 
-from langchain_openai import ChatOpenAI
-
-from langgraph.graph import StateGraph, MessagesState, START, END
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-
-from tools.nmap_tools import NmapTools
-
-from utils.mermaid_graph import MermaidGraphGenerator
-
-class AgentState(TypedDict):
-    """ 
-    I give that to the Agent to know data types
-    """
-    user_input: str
-    response: str
-    ip: str
-    scan_result: str
-    analysis_result: str
-    available_scripts: dict
-    open_services: dict
-    choosen_scripts: dict
-    result_scan_scripts: dict
-    messages: List[BaseMessage]
 
 class LLMAgent:
-    """
-    Agent that is going to use the LLM and use tools
-    """
 
     def __init__(self, model_name="llama3.1", base_url="http://localhost:11434"):
         """ 
@@ -43,55 +24,15 @@ class LLMAgent:
             openai_api_key=os.getenv("API_KEY")  
         )
         self.tool_node = NmapTools.get_tool_node()
-        self.graph = self.build_graph()
+        self.graph = GraphBuilder(self).build()
 
         # Generate graph (I use Mermaid)
         self.graph_visualizer = MermaidGraphGenerator(self.graph)
         self.graph_visualizer.generate_html()
-
-        
-
-    def build_graph(self):
-        """
-        Constructs the LangGraph state graph that orchestrates the agent's behavior.
-        """
-        graph = StateGraph(AgentState)  
-
-        graph.add_node("get_ip", self.get_ip)
-        graph.add_node("get_scan_type", self.get_scan_type)
-        graph.add_node("get_full_scan", self.get_full_scan)
-        graph.add_node("get_default_scan", self.get_default_scan)
-        graph.add_node("get_os_scan", self.get_os_scan)
-        graph.add_node("process_scan_result", self.process_scan_result)
-        graph.add_node("get_service_name", self.get_service_name)
-        graph.add_node("master_choose_script", self.master_choose_script)
-        graph.add_node("scan_with_recommanded_scripts", self.scan_with_recommanded_scripts)
-        graph.add_node("analyze_scripts_results", self.analyze_scripts_results)
-
-        graph.add_edge(START, "get_ip")  
-        graph.add_edge("get_ip", "get_scan_type")
-        
-        graph.add_conditional_edges(
-            "get_scan_type",
-            self.route_scan,
-            {
-                "full_scan": "get_full_scan",
-                "os_detection_scan": "get_os_scan",
-                "default_scan": "get_default_scan"
-            }
-        )
-
-
-        graph.add_edge("get_full_scan", "process_scan_result")
-        graph.add_edge("get_os_scan", "process_scan_result")
-        graph.add_edge("get_default_scan", "process_scan_result")
-        graph.add_edge("process_scan_result", "get_service_name")
-        graph.add_edge("get_service_name", "master_choose_script")
-        graph.add_edge("master_choose_script", "scan_with_recommanded_scripts")
-        graph.add_edge("scan_with_recommanded_scripts", "analyze_scripts_results")
-
-        return graph.compile()  
-    
+  
+  
+  
+  
     def get_service_name(self, state: AgentState) -> AgentState:
         """
         Get Service Name from JSON output
@@ -420,9 +361,3 @@ class LLMAgent:
 
         final_state = self.graph.invoke(initial_state)
 
-
-
-
-agent = LLMAgent()
-
-agent.ask("Can you scan IP 192.168.1.26")
